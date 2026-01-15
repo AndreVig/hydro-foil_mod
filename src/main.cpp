@@ -54,9 +54,7 @@ if(!primary_exists){
 	Lambda.print();
 	for(double ipt : pT){
 		for(double iphi : phi){
-			for(double iy : y_rap){
-				polarization_exact_rapidity(ipt, iphi, iy, Lambda, hypersup, fout);
-			}
+			polarization_midrapidity_linear(ipt, iphi, Lambda, hypersup, fout);
 		}
 	}
 }
