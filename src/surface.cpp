@@ -46,6 +46,55 @@ void read_hypersrface(string filename, vector<element> &hypersurface){
     cout << "Reading successful!" << endl;
 }
 
+void read_hypersrface_iso(string filename, vector<element> &hypersurface){
+    ifstream input_file(filename);
+    if(!input_file.is_open()){
+        cout << "Failed to open " << filename << endl;
+        exit(1);
+    }
+    cout << "Reading hypersurface from " << filename << endl;
+
+    string line;
+    while (getline(input_file, line)) {
+        if (line.empty() || line[0] == '#') {
+            continue; // skip empty or comment lines
+        }
+        
+        std::istringstream iss(line);
+        element cell;
+        
+        iss >> cell.tau >> cell.x >> cell.y >> cell.eta;
+        for(int mu=0;mu<4;mu++){
+            iss >> cell.dsigma[mu];
+        }        
+        for(int mu=0;mu<4;mu++){
+            iss >> cell.u[mu];
+        }
+        iss >> cell.T >> cell.mub >> cell.muq >> cell.mus;
+        for(int i=0; i<4; i++){
+            for(int j=0; j<4; j++){
+                iss >> cell.dbeta[i][j];
+            }
+        }
+        
+        isothermal_gradient(cell);
+        hypersurface.push_back(cell);
+    }
+    cout << "Reading successful!" << endl;
+}
+
+void isothermal_gradient(element &cell_old) {
+    std::array<double,4> udbeta = {0};
+    for (int mu=0; mu<4; mu++) {
+        for (int nu=0; nu<4; nu++) {
+            udbeta[mu] += cell_old.u[nu] * cell_old.dbeta[mu][nu];
+        }
+        for (int nu=0; nu<4; nu++) {
+            cell_old.dbeta[mu][nu] = cell_old.dbeta[mu][nu] - gmumu[nu] * cell_old.u[nu] * udbeta[mu];
+        }
+    }
+}
+
 void element::print(){
     cout<<"Printing hypersurface element:"<<endl;
     cout << tau << "    " << x << "    " << y << "    " << eta << "    ";
@@ -177,10 +226,10 @@ std::array<vector<element>,5> components_freeze_out(vector<element> &freeze_out_
     std::array<vector<element>,5> components = {};
     for(element cell : freeze_out_sup){
         components[0].push_back(new_dbeta(cell,0)); //acceleration vorticity
-        components[2].push_back(new_dbeta(cell,1)); //acceleration shear
-        components[3].push_back(new_dbeta(cell,2)); //angular velocity
-        components[4].push_back(new_dbeta(cell,3)); //proper shear
-        components[5].push_back(new_dbeta(cell,4)); //expansion
+        components[1].push_back(new_dbeta(cell,1)); //acceleration shear
+        components[2].push_back(new_dbeta(cell,2)); //angular velocity
+        components[3].push_back(new_dbeta(cell,3)); //proper shear
+        components[4].push_back(new_dbeta(cell,4)); //expansion
     }
     
     return components;

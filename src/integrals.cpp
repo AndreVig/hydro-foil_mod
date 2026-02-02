@@ -175,7 +175,7 @@ void modified_polarization_midrapidity_linear(double pT, double phi, pdg_particl
             pdSigma += p[mu] * cell.dsigma[mu];
             pu += p[mu] * cell.u[mu] * gmumu[mu];
         }
-	double pdSigma_sign = pdSigma / abs(pdSigma);
+	    double pdSigma_sign = pdSigma / abs(pdSigma);
         const double mutot = cell.mub*baryonNumber + cell.muq*electricCharge + cell.mus*strangeness;
         const double nf = 1 / (exp( (pu - mutot) / cell.T) + 1.0);
 

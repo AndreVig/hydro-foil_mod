@@ -4,14 +4,16 @@
 #include "surface.h"
 #include <filesystem>
 
-//TO TURN PARALLEL INTEGRATION OFF(ON) COMMENT(UN-COMMENT) THE OPEN_MP_FLAG LINE OF THE MAKEFILE
+// TO TURN PARALLEL INTEGRATION OFF(ON) COMMENT(UN-COMMENT) THE OPEN_MP_FLAG LINE OF THE MAKEFILE
+// The flag "-I" must be added in the execution command to use the isothermal-approximation formula for polarization
+// otherwise the 'improved formula' for polarization is used [2509.14301].
 
 using namespace std;
 
 int main(int argc, char** argv){
 
 bool decay = false;
-
+bool isoth = false;	// to use isothermal-approximation formula for polarization
 
 if(argc<3){
     cout<< "INVALID SINTAX!"<<endl;
@@ -20,9 +22,16 @@ if(argc<3){
 }
 
 if(argc>3){
-	if(argv[3]=="-D"s){
-		decay = true;
-		cout<<"Including calculations for the feed-down corrections!"<<endl;
+	for (int i=3; i<argc; i++) {
+		if (argv[i]=="-D"s) {
+			decay = true;
+			cout << "Including calculations for the feed-down corrections!" << endl;
+		} else if (argv[i]=="-I"s) {
+			isoth = true;
+			cout << "Using the isothermal approximation!" << endl;
+		} else {
+			cout << "Unknown flag ignored: " << argv[i] << endl;
+		}
 	}
 }
 
@@ -31,7 +40,14 @@ string output_folder = argv[2];
 filesystem::create_directories(output_folder);
 
 vector<element> hypersup = {};
-read_hypersrface(surface_file, hypersup);
+string output_filename;
+if (isoth) {
+	read_hypersrface_iso(surface_file, hypersup);
+	output_filename = "/primary_isothermal";
+} else {
+	read_hypersrface(surface_file, hypersup);
+	output_filename = "/primary";
+}
 
 int size_pt = 20;
 int size_phi = 30;
@@ -40,7 +56,7 @@ vector<double> pT = linspace(0,6.2,size_pt);
 vector<double> phi =  linspace(0,2*PI,size_phi);
 vector<double> y_rap =  linspace(-1,1,size_y);
 
-string name_file_primary = output_folder+"/primary";
+string name_file_primary = output_folder + output_filename;
 std::filesystem::path f{name_file_primary};
 bool primary_exists = std::filesystem::exists(f);
 if(!primary_exists){
@@ -54,7 +70,11 @@ if(!primary_exists){
 	Lambda.print();
 	for(double ipt : pT){
 		for(double iphi : phi){
-			polarization_midrapidity_linear(ipt, iphi, Lambda, hypersup, fout);
+			if (isoth) {
+				polarization_midrapidity_linear(ipt, iphi, Lambda, hypersup, fout);	// isothermal-approx formula
+			} else {
+				modified_polarization_midrapidity_linear(ipt, iphi, Lambda, hypersup, fout);	// improved formula [2509.14301]
+			}
 		}
 	}
 }
