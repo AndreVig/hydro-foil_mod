@@ -6,6 +6,7 @@
 
 // TO TURN PARALLEL INTEGRATION OFF(ON) COMMENT(UN-COMMENT) THE OPEN_MP_FLAG LINE OF THE MAKEFILE
 // The flag "-I" must be added in the execution command to use the isothermal-approximation formula for polarization
+// The flag "-R" must be added in the execution command to include the dependency on rapidity in the polarization calculation (instead of just at midrapidity). Note that the formula used in this case is the 'improved' one of 2509.14301, which includes the contribution from the shear and is more accurate at large rapidities. If you want to use the isothermal-approximation formula with rapidity dependence, you can modify the code accordingly (the function "modified_polarization_rapidity_linear" is already implemented but not used in the main, you just need to call it instead of "polarization_exact_rapidity" in the main loop). Note that if you want to use the 'improved' formula for polarization, you should not use the isothermal approximation, since it is derived without it.
 // otherwise the 'improved formula' for polarization is used [2509.14301].
 
 using namespace std;
@@ -13,7 +14,8 @@ using namespace std;
 int main(int argc, char** argv){
 
 bool decay = false;
-bool isoth = false;	// to use isothermal-approximation formula for polarization
+bool isoth = false;		// to use isothermal-approximation formula for polarization
+bool rapidity = false;	// to compute polarization as a function of rapidity (instead of at midrapidity)
 
 if(argc<3){
     cout<< "INVALID SINTAX!"<<endl;
@@ -29,6 +31,9 @@ if(argc>3){
 		} else if (argv[i]=="-I"s) {
 			isoth = true;
 			cout << "Using the isothermal approximation!" << endl;
+		} else if (argv[i]=="-R"s) {
+			rapidity = true;
+			cout << "Calculating polarization in the rapidity window [-1,1]!" << endl;
 		} else {
 			cout << "Unknown flag ignored: " << argv[i] << endl;
 		}
@@ -43,10 +48,18 @@ vector<element> hypersup = {};
 string output_filename;
 if (isoth) {
 	read_hypersrface_iso(surface_file, hypersup);
-	output_filename = "/primary_isothermal";
+	if (rapidity) {
+		output_filename = "/primary_isothermal_rapidity";
+	} else {
+		output_filename = "/primary_isothermal";
+	}
 } else {
 	read_hypersrface(surface_file, hypersup);
-	output_filename = "/primary";
+	if (rapidity) {
+		output_filename = "/primary_rapidity";
+	} else {
+		output_filename = "/primary";
+	}
 }
 
 int size_pt = 20;
@@ -61,13 +74,27 @@ std::filesystem::path f{name_file_primary};
 bool primary_exists = std::filesystem::exists(f);
 if(!primary_exists){
 	ofstream fout(name_file_primary);
-		if (!fout) {
-			cout << "I/O error with " << name_file_primary << endl;
-			exit(1);
-	 }
+	if (!fout) {
+		cout << "I/O error with " << name_file_primary << endl;
+		exit(1);
+	}
 
 	pdg_particle Lambda(3122);
 	Lambda.print();
+
+	if (rapidity) {
+		for(double ipt : pT){
+			for(double iphi : phi){
+				for(double iy : y_rap){
+					if (isoth) {
+						polarization_exact_rapidity(ipt, iphi, iy, Lambda, hypersup, fout);	// isothermal-approx formula
+					} else {
+						modified_polarization_rapidity_linear(ipt, iphi, iy, Lambda, hypersup, fout);	// improved formula [2509.14301]
+					}
+				}
+			}
+		}
+	} else {
 	for(double ipt : pT){
 		for(double iphi : phi){
 			if (isoth) {
@@ -79,7 +106,7 @@ if(!primary_exists){
 	}
 }
 else{
-	cout<<"Primary file already exists! Skipping calculation..."<<endl;
+	cout<< "Primary file already exists! Skipping calculation..." <<endl;
 }
 
 
