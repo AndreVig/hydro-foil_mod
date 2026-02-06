@@ -95,17 +95,17 @@ if(!primary_exists){
 			}
 		}
 	} else {
-	for(double ipt : pT){
-		for(double iphi : phi){
-			if (isoth) {
-				polarization_midrapidity_linear(ipt, iphi, Lambda, hypersup, fout);	// isothermal-approx formula
-			} else {
-				modified_polarization_midrapidity_linear(ipt, iphi, Lambda, hypersup, fout);	// improved formula [2509.14301]
+		for(double ipt : pT){
+			for(double iphi : phi){
+				if (isoth) {
+					polarization_midrapidity_linear(ipt, iphi, Lambda, hypersup, fout);	// isothermal-approx formula
+				} else {
+					modified_polarization_midrapidity_linear(ipt, iphi, Lambda, hypersup, fout);	// improved formula [2509.14301]
+				}
 			}
 		}
 	}
-}
-else{
+} else {
 	cout<< "Primary file already exists! Skipping calculation..." <<endl;
 }
 

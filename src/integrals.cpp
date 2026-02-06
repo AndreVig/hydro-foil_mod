@@ -190,9 +190,9 @@ void modified_polarization_midrapidity_linear(double pT, double phi, pdg_particl
                                     * p_[sg] * cell.dbeta[nu][rh];
             
             for(int ta=0; ta<4; ta++)
-            P_shear[mu] += -pdSigma * pdSigma_sign  * nf * (1. - nf) * LeviCivita
+            P_shear[mu] += -pdSigma_sign  * nf * (1. - nf) * LeviCivita
                         * p_[sg] * p[ta] * cell.dsigma[nu]
-                        * ( cell.dbeta[rh][ta] + cell.dbeta[ta][rh]) / pdSigma;
+                        * ( cell.dbeta[rh][ta] + cell.dbeta[ta][rh]);
         }
     }
     //print to file
@@ -246,9 +246,9 @@ void modified_polarization_rapidity_linear(double pT, double phi, double y_rap, 
                                     * p_[sg] * cell.dbeta[nu][rh];
             
             for(int ta=0; ta<4; ta++)
-            P_shear[mu] += -pdSigma * pdSigma_sign  * nf * (1. - nf) * LeviCivita
+            P_shear[mu] += -pdSigma_sign  * nf * (1. - nf) * LeviCivita
                         * p_[sg] * p[ta] * cell.dsigma[nu]
-                        * ( cell.dbeta[rh][ta] + cell.dbeta[ta][rh]) / pdSigma;
+                        * ( cell.dbeta[rh][ta] + cell.dbeta[ta][rh]);
         }
     }
     //print to file
