@@ -5,11 +5,11 @@
 #include <filesystem>
 
 // TO TURN PARALLEL INTEGRATION OFF(ON) COMMENT(UN-COMMENT) THE OPEN_MP_FLAG LINE OF THE MAKEFILE
-// The flag "-I" must be added in the execution command to use the isothermal-approximation formula for polarization
-// The flag "-R" must be added in the execution command to include the dependency on rapidity in the polarization calculation (instead of just at midrapidity). Note that the formula used in this case is the 'improved' one of 2509.14301, which includes the contribution from the shear and is more accurate at large rapidities. If you want to use the isothermal-approximation formula with rapidity dependence, you can modify the code accordingly (the function "modified_polarization_rapidity_linear" is already implemented but not used in the main, you just need to call it instead of "polarization_exact_rapidity" in the main loop). Note that if you want to use the 'improved' formula for polarization, you should not use the isothermal approximation, since it is derived without it.
-// otherwise the 'improved formula' for polarization is used [2509.14301].
-// The flag "-N" must be added in the execution command to use the improved formula for polarization
-// applied to the isothermal hypersurface (that is, when also the flag "-I" is used).
+// The flag "-I" must be added in the execution command to read the freeze-out hypersurface according to the isothermal-approximation formula for polarization.
+// Do not add the flag "-I" if the freeze-out hypersurface is already given in the isothermal approximation, i.e. if super-vhlle is used.
+// The flag "-R" must be added in the execution command to include the dependency on rapidity in the polarization calculation (instead of just at midrapidity).
+// The flag "-N" must be added in the execution command to use the improved formula for polarization calculation,
+// otherwise the isothermal-approximation formula will be used.
 
 using namespace std;
 
@@ -69,10 +69,18 @@ if (isoth) {
 	}
 } else {
 	read_hypersrface(surface_file, hypersup);
-	if (rapidity) {
-		output_filename = "/primary_rapidity";
+	if (new_formula) {
+		if (rapidity) {
+			output_filename = "/primary_rapidity";
+		} else {
+			output_filename = "/primary";
+		}
 	} else {
-		output_filename = "/primary";
+		if (rapidity) {
+			output_filename = "/primary_super-vhlle_rapidity";
+		} else {
+			output_filename = "/primary_super-vhlle_midrapidity";
+		}
 	}
 }
 
@@ -100,7 +108,7 @@ if(!primary_exists){
 		for(double ipt : pT){
 			for(double iphi : phi){
 				for(double iy : y_rap){
-					if (isoth && !new_formula) {
+					if (!new_formula) {
 						polarization_exact_rapidity(ipt, iphi, iy, Lambda, hypersup, fout);	// isothermal-approx formula
 					} else {
 						modified_polarization_rapidity_linear(ipt, iphi, iy, Lambda, hypersup, fout);	// improved formula [2509.14301]
@@ -111,7 +119,7 @@ if(!primary_exists){
 	} else {
 		for(double ipt : pT){
 			for(double iphi : phi){
-				if (isoth && !new_formula) {
+				if (!new_formula) {
 					polarization_midrapidity_linear(ipt, iphi, Lambda, hypersup, fout);	// isothermal-approx formula
 				} else {
 					modified_polarization_midrapidity_linear(ipt, iphi, Lambda, hypersup, fout);	// improved formula [2509.14301]
