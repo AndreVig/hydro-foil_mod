@@ -24,12 +24,12 @@ void polarization_midrapidity_linear(double pT, double phi, pdg_particle particl
 //same as the previous function but uses eq. 23 of 2509.14301 (with just the contribution from \overline{y}=x) as the formula for the mean spin vector
 void modified_polarization_midrapidity_linear(double pT, double phi, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
 
-//same as the previous function but includes the rapidity dependence.
-void modified_polarization_rapidity_linear(double pT, double phi, double y_rap, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
+//same as the previous function but includes the pseudorapidity dependence.
+void modified_polarization_pseudorapidity_linear(double pT, double phi, double eta, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
 
-//Same as "polarization_midrapidity", but the table now includes the rapidity "y":
-//pt phi y denominator numerator_varpi numerator_xi
-void polarization_exact_rapidity(double pT, double phi, double y_rap, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
+//same as "polarization_midrapidity", but the table now includes the pseudorapidity "eta":
+//pt phi eta denominator numerator_varpi numerator_xi
+void polarization_exact_pseudorapidity(double pT, double phi, double eta, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
 
 //auxiliary function to compute polarization for any spin
 double aux_exact_polarization(double spin, double pu, double T, double mutot, double theta_sq);

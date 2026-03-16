@@ -4,54 +4,67 @@ import numpy as np
 import matplotlib
 import matplotlib.patches as ptch
 
-def Sz_rapidity_polarization(polarization_file, mass=1.115683, rap_cut=1, pt_cut=10, vorticity=False, global_integrals = False):
+def Sz_rapidity_polarization(polarization_file, mass=1.32171, eta_cut=1, pt_cut=10, vorticity=False, global_integrals=False):
     '''
-    Computes the z component of polarization as a function of phi from the particlizationCalc output.
-    If vorticity = True plots only the contribution of the vorticity
-    spin_to_polarization converts the mean spin formula to polarization. Particles are assumet to be S=1/2 by default.
+    Computes the z component of polarization as a function of phi from the hydro-foil_mod output.
+    If vorticity = True plots only the contribution of the vorticity.
     '''
     filename =  np.loadtxt(polarization_file, unpack=True)
     pT = filename[0]
     phi = filename[1]
-    y_rap = filename[2]
-    select = (np.abs(y_rap)<=rap_cut) & (pT>0.5) & (pT<pt_cut)
+    eta = filename[2]
+    select = (np.abs(eta)<=eta_cut) & (pT>0.5) & (pT<pt_cut)
     pT = pT[select]
     phi = phi[select]
-    y_rap = y_rap[select]
+    eta = eta[select]
 
     dndp = filename[3]
     dndp = dndp[select]
-    dimP=np.size(np.unique(pT))
-    dimPhi=np.size(np.unique(phi))
-    dimy=np.size(np.unique(y_rap))
+    dimP = np.size(np.unique(pT))
+    dimPhi = np.size(np.unique(phi))
+    dimEta = np.size(np.unique(eta))
     Pi0 = filename[4]
     Pizu = filename[7]
     if(vorticity):
         vorticity=False
     else:
         Pi0 = Pi0 + filename[8]
-        Pizu = Pizu + filename[11] 
+        Pizu = Pizu + filename[11]
 
     Pi0 = Pi0[select]
     Pizu = Pizu[select]
 
-    #BACKBOOST to Lambda RF
-    mT = np.sqrt(mass*mass + pT*pT)
-    Pizu = Pizu - Pi0*(mT*np.sinh(y_rap))/(mT*np.cosh(y_rap)+mass)
+    #BACKBOOST to Xi RF
+    # mT = np.sqrt(mass*mass + pT*pT)
+    p_norm = pT*np.cosh(eta) # norm of the three-momentum
+    Pizu = Pizu - Pi0*(pT*np.sinh(eta))/(np.sqrt(mass*mass + p_norm*p_norm) + mass)
+
+    pT_unique = np.unique(pT)
+    eta_unique = np.unique(eta)
     
-    if dimy>1:
-        Pz = Pizu.reshape((dimP,dimPhi,dimy))
-        dNdP = dndp.reshape((dimP,dimPhi,dimy))
-        Pt = pT.reshape((dimP,dimPhi,dimy))
-        mean_spin = np.trapz(np.trapz(Pz,x=np.unique(pT),axis=0),x=np.unique(y_rap),axis=1)
-        spectra = np.trapz(np.trapz(dNdP,x=np.unique(pT),axis=0),x=np.unique(y_rap),axis=1)
+    if dimEta>1:
+        Pz = Pizu.reshape((dimP,dimPhi,dimEta))
+        dNdP = dndp.reshape((dimP,dimPhi,dimEta))
+        pT_broad = pT.reshape((dimP,dimPhi,dimEta))
+        eta_broad = eta.reshape((dimP,dimPhi,dimEta))
+        pNorm_broad = pT_broad*np.cosh(eta_broad)
+        mean_spin = np.trapezoid(np.trapezoid(Pz*pT_broad*pNorm_broad/(np.sqrt(mass**2 + pNorm_broad**2)),x=pT_unique,axis=0),x=eta_unique,axis=1)
+        spectra = np.trapezoid(np.trapezoid(dNdP*pT_broad*pNorm_broad/(np.sqrt(mass**2 + pNorm_broad**2)),x=pT_unique,axis=0),x=eta_unique,axis=1)
+        ## alternative (and more efficient, actually) approach
+        # pT_broad = np.unique(pT)[:,None,None]
+        # eta_broad = np.unique(eta)[None,None,:]
+        # pNorm_broad = pT_broad*np.cosh(eta_broad)
+        # E_broad = np.sqrt(mass**2 + pNorm_broad**2)
+        # mean_spin = np.trapezoid(np.trapezoid(Pz*pT_broad*pNorm_broad/E_broad,x=np.unique(pT),axis=0),x=np.unique(eta),axis=1)
+        # spectra = np.trapezoid(np.trapezoid(dNdP*pT_broad*pNorm_broad/E_broad,x=np.unique(pT),axis=0),x=np.unique(eta),axis=1)
     else:
-        print("Midrapidity only!")
+        print("Mid(pseudo)rapidity only!")
         Pz = Pizu.reshape((dimP,dimPhi))
         dNdP = dndp.reshape((dimP,dimPhi))
-        Pt = pT.reshape((dimP,dimPhi))
-        mean_spin = np.trapz(Pz,x=np.unique(pT),axis=0)
-        spectra = np.trapz(dNdP,x=np.unique(pT),axis=0)
+        pT_broad = pT.reshape((dimP,dimPhi))
+        E_broad = np.sqrt(mass**2 + pT_broad**2) # at midrapidity pNorm = pT
+        mean_spin = np.trapezoid(pT_broad*pT_broad*Pz/E_broad,x=pT_unique,axis=0)
+        spectra = np.trapezoid(pT_broad*pT_broad*dNdP/E_broad,x=pT_unique,axis=0)
     
     if(global_integrals):
         return np.unique(phi), mean_spin, spectra

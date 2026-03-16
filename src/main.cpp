@@ -5,38 +5,33 @@
 #include <filesystem>
 
 // TO TURN PARALLEL INTEGRATION OFF(ON) COMMENT(UN-COMMENT) THE OPEN_MP_FLAG LINE OF THE MAKEFILE
-// The flag "-I" must be added in the execution command to read the freeze-out hypersurface according to the isothermal-approximation formula for polarization.
-// Do not add the flag "-I" if the freeze-out hypersurface is already given in the isothermal approximation, i.e. if super-vhlle is used.
-// The flag "-R" must be added in the execution command to include the dependency on rapidity in the polarization calculation (instead of just at midrapidity).
+// The flag "-H" must be added in the execution command to disable the option for the 'isothermal' freeze-out hypersurface.
+// If the flag "-H" is NOT provided, the 'ISOTHERMAL' freeze-out hypersurface is used in the calculation.
 // The flag "-N" must be added in the execution command to use the improved formula for polarization calculation,
-// otherwise the isothermal-approximation formula will be used.
+// otherwise the isothermal-approximation 'old' formula will be used.
 
 using namespace std;
 
 int main(int argc, char** argv){
 
+bool isoth = true;			// to decide whether to use (true) or not (false) the "isothermal hypersurface"
+bool new_formula = false;	// to decide whether to use (true) or not (false) the improved formula for polarization
 bool decay = false;
-bool isoth = false;		// to use isothermal-approximation formula for polarization
-bool rapidity = false;	// to compute polarization as a function of rapidity (instead of at midrapidity)
-bool new_formula = false;	// to use the improved formula applied to the isothermal hypersurface
 
-if(argc<3){
-    cout<< "INVALID SINTAX!"<<endl;
-	cout<<"use './foil <surface_file> <output_folder> <flags>' to compute Lambda polarization at decoupling."<<endl;
+if (argc<3) {
+    cout << "INVALID SINTAX!" << endl;
+	cout << "use './foil <surface_file> <output_folder> <flags>' to compute Xi polarization at decoupling." << endl;
 	exit(1);
 }
 
-if(argc>3){
+if (argc>3) {
 	for (int i=3; i<argc; i++) {
 		if (argv[i]=="-D"s) {
 			decay = true;
 			cout << "Including calculations for the feed-down corrections!" << endl;
-		} else if (argv[i]=="-I"s) {
-			isoth = true;
-			cout << "Using the isothermal approximation!" << endl;
-		} else if (argv[i]=="-R"s) {
-			rapidity = true;
-			cout << "Calculating polarization in the rapidity window [-1,1]!" << endl;
+		} else if (argv[i]=="-H"s) {
+			isoth = false;
+			cout << "Deactivating the option for the 'isothermal hypersurface'!" << endl;
 		} else if (argv[i]=="-N"s) {
 			new_formula = true;
 			cout << "Using the improved formula for the polarization calculation" << endl;
@@ -55,41 +50,25 @@ string output_filename;
 if (isoth) {
 	read_hypersrface_iso(surface_file, hypersup);
 	if (new_formula) {
-		if (rapidity) {
-			output_filename = "/primary_isothermal_rapidity_improved";
-		} else {
-			output_filename = "/primary_isothermal_midrapidity_improved";
-		}
+		output_filename = "/primary_isothermal_improved";
 	} else {
-		if (rapidity) {
-			output_filename = "/primary_isothermal_rapidity";
-		} else {
-			output_filename = "/primary_isothermal";
-		}
+		output_filename = "/primary_isothermal";
 	}
 } else {
 	read_hypersrface(surface_file, hypersup);
 	if (new_formula) {
-		if (rapidity) {
-			output_filename = "/primary_rapidity";
-		} else {
-			output_filename = "/primary";
-		}
+		output_filename = "/primary_not-isothermal_improved";
 	} else {
-		if (rapidity) {
-			output_filename = "/primary_super-vhlle_rapidity";
-		} else {
-			output_filename = "/primary_super-vhlle_midrapidity";
-		}
+		output_filename = "/primary_not-isothermal";
 	}
 }
 
-int size_pt = 20;
+int size_pt = 30;
 int size_phi = 30;
-int size_y = 20;
-vector<double> pT = linspace(0,6.2,size_pt);
-vector<double> phi =  linspace(0,2*PI,size_phi);
-vector<double> y_rap =  linspace(-1,1,size_y);
+int size_eta = 20;
+vector<double> pT = linspace(0.8,6.2,size_pt);
+vector<double> phi = linspace(0,2*PI,size_phi);
+vector<double> eta = linspace(-0.8,0.8,size_eta);
 
 string name_file_primary = output_folder + output_filename;
 std::filesystem::path f{name_file_primary};
@@ -101,34 +80,22 @@ if(!primary_exists){
 		exit(1);
 	}
 
-	pdg_particle Lambda(3122);
-	Lambda.print();
+	pdg_particle Xi(3312);
+	Xi.print();
 
-	if (rapidity) {
-		for(double ipt : pT){
-			for(double iphi : phi){
-				for(double iy : y_rap){
-					if (!new_formula) {
-						polarization_exact_rapidity(ipt, iphi, iy, Lambda, hypersup, fout);	// isothermal-approx formula
-					} else {
-						modified_polarization_rapidity_linear(ipt, iphi, iy, Lambda, hypersup, fout);	// improved formula [2509.14301]
-					}
-				}
-			}
-		}
-	} else {
-		for(double ipt : pT){
-			for(double iphi : phi){
+	for(double ipt : pT){
+		for(double iphi : phi){
+			for(double ieta : eta){
 				if (!new_formula) {
-					polarization_midrapidity_linear(ipt, iphi, Lambda, hypersup, fout);	// isothermal-approx formula
+					polarization_exact_pseudorapidity(ipt, iphi, ieta, Xi, hypersup, fout);	// isothermal-approx old formula
 				} else {
-					modified_polarization_midrapidity_linear(ipt, iphi, Lambda, hypersup, fout);	// improved formula [2509.14301]
+					modified_polarization_pseudorapidity_linear(ipt, iphi, ieta, Xi, hypersup, fout);	// improved formula [2509.14301]
 				}
 			}
 		}
 	}
 } else {
-	cout<< "Primary file already exists! Skipping calculation..." <<endl;
+	cout << "Primary file already exists! Skipping calculation..." << endl;
 }
 
 
