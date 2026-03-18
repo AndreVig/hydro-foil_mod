@@ -45,8 +45,8 @@ void Lambda_polarization_FeedDown(double pT, double phi, double y_rap, pdg_parti
     interpolator &spectrum_interpolator, array<interpolator,4> &S_vorticity_interpolator, array<interpolator,4> &S_shear_interpolator, ofstream &fileout);
 
 //prints components of polarization coming from different hydro gradients
-void polarization_components(pdg_particle particle, 
-        std::array<vector<element>,5> components, std::array<string,5> fileout_list);
+/* void polarization_components(pdg_particle particle, 
+        std::array<vector<element>,5> components, std::array<string,5> fileout_list); */
 
 // DEPRECATED void Lambda_FeedDown_nointerpolation(double pT, double phi, double y_rap, pdg_particle mother, 
 //     vector<element> &freeze_out_sup, ofstream &fileout);

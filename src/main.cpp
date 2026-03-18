@@ -103,7 +103,7 @@ if(!primary_exists){
 
 
 ////////////////////////////////////DECAYS///////////////////////////////	 
-if(decay){
+/* if(decay){
 	string table_file_sigma0 = output_folder + "/TableSigma0";
 	string table_file_sigmastar = output_folder + "/TableSigmastar";
 	
@@ -187,7 +187,7 @@ if(decay){
 			}
 		}
 	}
-}
+} */
 
 cout<<"The calculation is done!"<<endl;
 return 0;
