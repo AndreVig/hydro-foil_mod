@@ -73,25 +73,26 @@ def Sz_rapidity_polarization(polarization_file, mass=1.32171, eta_cut=1, pt_cut=
 
     return np.unique(phi), pol
 
-def Sz_polarization_pT(polarization_file, mass=1.115683, harmonics=2, rap_cut=1, vorticity=False, global_integrals = False):
+def Sz_polarization_pT(polarization_file, mass=1.32171, harmonics=2, eta_cut=1, vorticity=False, global_integrals=False):
     '''
-    Computes the z component of polarization as a function of pT from the hydro-foil output.
-    If vorticity = True plots only the contribution of the vorticity
+    Computes the mean value of z component of polarization multiplied per sin(2phi)
+    as a function of pT from the hydro-foil output.
+    If vorticity = True plots only the contribution of the vorticity.
     '''
     filename =  np.loadtxt(polarization_file, unpack=True)
     pT = filename[0]
     phi = filename[1]
-    y_rap = filename[2]
-    select = (np.abs(y_rap)<=rap_cut) 
+    eta = filename[2]
+    select = (np.abs(eta)<=eta_cut)
     pT = pT[select]
     phi = phi[select]
-    y_rap = y_rap[select]
+    eta = eta[select]
 
     dndp = filename[3]
     dndp = dndp[select]
-    dimP=np.size(np.unique(pT))
-    dimPhi=np.size(np.unique(phi))
-    dimy=np.size(np.unique(y_rap))
+    dimP = np.size(np.unique(pT))
+    dimPhi = np.size(np.unique(phi))
+    dimEta = np.size(np.unique(eta))
     Pi0 = filename[4]
     Pizu = filename[7]
     if(vorticity):
@@ -103,23 +104,32 @@ def Sz_polarization_pT(polarization_file, mass=1.115683, harmonics=2, rap_cut=1,
     Pi0 = Pi0[select]
     Pizu = Pizu[select]
 
-    #BACKBOOST to Lambda RF
-    mT = np.sqrt(mass*mass + pT*pT)
-    Pizu = Pizu - Pi0*(mT*np.sinh(y_rap))/(mT*np.cosh(y_rap)+mass)
+    #BACKBOOST to Xi RF
+    # mT = np.sqrt(mass*mass + pT*pT)
+    p_norm = pT*np.cosh(eta) # norm of the three-momentum
+    Pizu = Pizu - Pi0*(pT*np.sinh(eta))/(np.sqrt(mass*mass + p_norm*p_norm) + mass)
+
+    phi_unique = np.unique(phi)
+    eta_unique = np.unique(eta)
     
-    if dimy>1:
-        Pzsin = Pizu*np.sin(harmonics*phi) 
-        Pz_reahsped = Pzsin.reshape((dimP,dimPhi,dimy))
-        dNdP_reshaped = dndp.reshape((dimP,dimPhi,dimy))
-        mean_spin = np.trapz(np.trapz(Pz_reahsped,x=np.unique(phi),axis=1),x=np.unique(y_rap),axis=1)
-        spectra = np.trapz(np.trapz(dNdP_reshaped,x=np.unique(phi),axis=1),x=np.unique(y_rap),axis=1)
+    if dimEta>1:
+        Pzsin = Pizu*np.sin(harmonics*phi)
+        Pz_reshaped = Pzsin.reshape((dimP,dimPhi,dimEta))
+        dNdP_reshaped = dndp.reshape((dimP,dimPhi,dimEta))
+        pT_broad = pT.reshape((dimP,dimPhi,dimEta))
+        eta_broad = eta.reshape((dimP,dimPhi,dimEta))
+        pNorm_broad = pT_broad*np.cosh(eta_broad)
+        mean_spin = np.trapezoid(np.trapezoid(Pz_reshaped*pT_broad*pNorm_broad/(np.sqrt(mass**2 + pNorm_broad**2)),x=phi_unique,axis=1),x=eta_unique,axis=1)
+        spectra = np.trapezoid(np.trapezoid(dNdP_reshaped*pT_broad*pNorm_broad/(np.sqrt(mass**2 + pNorm_broad**2)),x=phi_unique,axis=1),x=eta_unique,axis=1)
     else:
-        print("Midrapidity only!")
+        print("Mid(pseudo)rapidity only!")
         Pzsin = Pizu*np.sin(harmonics*phi) 
-        Pz_reahsped = Pzsin.reshape((dimP,dimPhi))
+        Pz_reshaped = Pzsin.reshape((dimP,dimPhi))
         dNdP_reshaped = dndp.reshape((dimP,dimPhi))
-        mean_spin = np.trapz(Pz_reahsped,x=np.unique(phi),axis=1)
-        spectra = np.trapz(dNdP_reshaped,x=np.unique(phi),axis=1)
+        pT_broad = pT.reshape((dimP,dimPhi))
+        E_broad = np.sqrt(mass**2 + pT_broad**2) # at midrapidity pNorm = pT
+        mean_spin = np.trapezoid(pT_broad*pT_broad*Pz_reshaped/E_broad,x=phi_unique,axis=1)
+        spectra = np.trapezoid(pT_broad*pT_broad*dNdP_reshaped/E_broad,x=phi_unique,axis=1)
     
     if(global_integrals):
         return np.unique(pT), mean_spin, spectra

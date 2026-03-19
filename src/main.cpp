@@ -9,6 +9,8 @@
 // If the flag "-H" is NOT provided, the 'ISOTHERMAL' freeze-out hypersurface is used in the calculation.
 // The flag "-N" must be added in the execution command to use the improved formula for polarization calculation,
 // otherwise the isothermal-approximation 'old' formula will be used.
+// The flag "-L" must be added to compute Lambda polarization instead of Xi polarization,
+// which is the default particle for the calculation.
 
 using namespace std;
 
@@ -17,6 +19,7 @@ int main(int argc, char** argv){
 bool isoth = true;			// to decide whether to use (true) or not (false) the "isothermal hypersurface"
 bool new_formula = false;	// to decide whether to use (true) or not (false) the improved formula for polarization
 bool decay = false;
+int id_particle = 3312;		// PDG code for Xi
 
 if (argc<3) {
     cout << "INVALID SINTAX!" << endl;
@@ -34,7 +37,10 @@ if (argc>3) {
 			cout << "Deactivating the option for the 'isothermal hypersurface'!" << endl;
 		} else if (argv[i]=="-N"s) {
 			new_formula = true;
-			cout << "Using the improved formula for the polarization calculation" << endl;
+			cout << "Using the improved formula for the polarization calculation!" << endl;
+		} else if (argv[i]=="-L"s) {
+			id_particle = 3122;
+			cout << "Calculating polarization for Lambda!" << endl;
 		} else {
 			cout << "Unknown flag ignored: " << argv[i] << endl;
 		}
@@ -46,20 +52,21 @@ string output_folder = argv[2];
 filesystem::create_directories(output_folder);
 
 vector<element> hypersup = {};
+string particle_name = (id_particle==3312) ? "Xi" : "Lambda";
 string output_filename;
 if (isoth) {
 	read_hypersrface_iso(surface_file, hypersup);
 	if (new_formula) {
-		output_filename = "/primary_isothermal_improved";
+		output_filename = "/" + particle_name + "_primary_isothermal_improved";
 	} else {
-		output_filename = "/primary_isothermal";
+		output_filename = "/" + particle_name + "_primary_isothermal";
 	}
 } else {
 	read_hypersrface(surface_file, hypersup);
 	if (new_formula) {
-		output_filename = "/primary_not-isothermal_improved";
+		output_filename = "/" + particle_name + "_primary_not-isothermal_improved";
 	} else {
-		output_filename = "/primary_not-isothermal";
+		output_filename = "/" + particle_name + "_primary_not-isothermal";
 	}
 }
 
@@ -80,16 +87,16 @@ if(!primary_exists){
 		exit(1);
 	}
 
-	pdg_particle Xi(3312);
-	Xi.print();
+	pdg_particle hadron(id_particle);
+	hadron.print();
 
 	for(double ipt : pT){
 		for(double iphi : phi){
 			for(double ieta : eta){
 				if (!new_formula) {
-					polarization_exact_pseudorapidity(ipt, iphi, ieta, Xi, hypersup, fout);	// isothermal-approx old formula
+					polarization_exact_pseudorapidity(ipt, iphi, ieta, hadron, hypersup, fout);	// isothermal-approx old formula
 				} else {
-					modified_polarization_pseudorapidity_linear(ipt, iphi, ieta, Xi, hypersup, fout);	// improved formula [2509.14301]
+					modified_polarization_pseudorapidity_linear(ipt, iphi, ieta, hadron, hypersup, fout);	// improved formula [2509.14301]
 				}
 			}
 		}
