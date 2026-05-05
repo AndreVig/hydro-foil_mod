@@ -73,7 +73,7 @@ if (isoth) {
 int size_pt = 30;
 int size_phi = 30;
 int size_eta = 20;
-vector<double> pT = linspace(0.8,6.2,size_pt);
+vector<double> pT = linspace(0.5,5.8,size_pt);
 vector<double> phi = linspace(0,2*PI,size_phi);
 vector<double> eta = linspace(-0.8,0.8,size_eta);
 
