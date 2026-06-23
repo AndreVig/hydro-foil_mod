@@ -11,6 +11,8 @@
 // otherwise the isothermal-approximation 'old' formula will be used.
 // The flag "-L" must be added to compute Lambda polarization instead of Xi polarization,
 // which is the default particle for the calculation.
+// The flag "-O" must be added to compute Omega polarization instead of Xi polarization,
+// which is the default particle for the calculation.
 
 using namespace std;
 
@@ -20,6 +22,7 @@ bool isoth = true;			// to decide whether to use (true) or not (false) the "isot
 bool new_formula = false;	// to decide whether to use (true) or not (false) the improved formula for polarization
 bool decay = false;
 int id_particle = 3312;		// PDG code for Xi
+string particle_name = "Xi";
 
 if (argc<3) {
     cout << "INVALID SINTAX!" << endl;
@@ -40,7 +43,12 @@ if (argc>3) {
 			cout << "Using the improved formula for the polarization calculation!" << endl;
 		} else if (argv[i]=="-L"s) {
 			id_particle = 3122;
+			particle_name = "Lambda";
 			cout << "Calculating polarization for Lambda!" << endl;
+		} else if (argv[i]=="-O"s) {
+			id_particle = 3334;
+			particle_name = "Omega";
+			cout << "Calculating polarization for Omega!" << endl;
 		} else {
 			cout << "Unknown flag ignored: " << argv[i] << endl;
 		}
@@ -52,7 +60,6 @@ string output_folder = argv[2];
 filesystem::create_directories(output_folder);
 
 vector<element> hypersup = {};
-string particle_name = (id_particle==3312) ? "Xi" : "Lambda";
 string output_filename;
 if (isoth) {
 	read_hypersrface_iso(surface_file, hypersup);
@@ -73,7 +80,7 @@ if (isoth) {
 int size_pt = 30;
 int size_phi = 30;
 int size_eta = 20;
-vector<double> pT = linspace(0.5,5.8,size_pt);
+vector<double> pT = linspace(0.8,6.5,size_pt);
 vector<double> phi = linspace(0,2*PI,size_phi);
 vector<double> eta = linspace(-0.8,0.8,size_eta);
 
