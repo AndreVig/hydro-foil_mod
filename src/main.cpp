@@ -84,12 +84,12 @@ if (isoth) {
 	}
 }
 
-int size_pt = 20;
+int size_pt = 30;
 int size_phi = 30;
 int size_y = 20;
-vector<double> pT = linspace(0,6.2,size_pt);
+vector<double> pT = linspace(0.5,6.5,size_pt);
 vector<double> phi =  linspace(0,2*PI,size_phi);
-vector<double> y_rap =  linspace(-1,1,size_y);
+vector<double> y_rap =  linspace(-0.5,0.5,size_y);
 
 string name_file_primary = output_folder + output_filename;
 std::filesystem::path f{name_file_primary};
