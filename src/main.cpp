@@ -3,26 +3,107 @@
 #include "utils.h"
 #include "surface.h"
 #include <filesystem>
+#include <functional>
+#include <map>
+#include <string>
 
-// TO TURN PARALLEL INTEGRATION OFF(ON) COMMENT(UN-COMMENT) THE OPEN_MP_FLAG LINE OF THE MAKEFILE
-// The flag "-I" must be added in the execution command to read the freeze-out hypersurface according to the isothermal-approximation formula for polarization.
-// Do not add the flag "-I" if the freeze-out hypersurface is already given in the isothermal approximation, i.e. if super-vhlle is used.
-// The flag "-R" must be added in the execution command to include the dependency on rapidity in the polarization calculation (instead of just at midrapidity).
-// The flag "-N" must be added in the execution command to use the improved formula for polarization calculation,
-// otherwise the isothermal-approximation formula will be used.
+/*
+Run './foil <surface_file> <output_folder> <options>'
+
+TO TURN PARALLEL INTEGRATION OFF(ON) COMMENT(UN-COMMENT) THE OPEN_MP_FLAG LINE OF THE MAKEFILE
+
+Default behaviour:
+computation of Lambda polarization at midrapidity using the improved formula and the pysr-modified beta.dat vHLLE file.
+
+Options that can be added in the execution command and their explanantion:
+	-D --> to include feed-down corrections (deacys)
+	-R --> to include rapidity dependence in the polarization calculation
+	--iso --> to use the isothermal approximation (old) formula for the polarization calculation
+	--impr-std --> to use the improved formula for the polarization calculation, and the original beta.dat vHLLE file
+	--impr-hybrid --> to use the improved formula for the polarization calculation, and the pysr-hybrid beta.dat vHLLE file
+*/
 
 using namespace std;
+
+//enum class surface_mode {standard, modified, isothermal};	// "modified" refers to the beta.dat file (output of vHLLE) with the inclusion of the unit normal vector
+//enum class formula_mode {improved, improved_mod, old};	// "improved_mod" refers to the improved formula adapted to the modified beta.dat file
+enum class polarization_mode {isothermal, improved_std, improved_pysr, improved_hybrid};
+
+// Use "hypersurface_reader" as an alias for the function type used to read the hypersurface file
+using hypersurface_reader = std::function<void(string, vector<element>&)>;
+// Use "polarization_func_rapidity" as an alias for the function type used to compute the polarization with rapidity dependence
+using polarization_func_rapidity = std::function<void(double, double, double, pdg_particle, vector<element>&, ofstream&)>;
+// Use "polarization_func_midrapidity" as an alias for the function type used to compute the polarization at midrapidity
+using polarization_func_midrapidity = std::function<void(double, double, pdg_particle, vector<element>&, ofstream&)>;
+
+
 
 int main(int argc, char** argv){
 
 bool decay = false;
-bool isoth = false;		// to use isothermal-approximation formula for polarization
 bool rapidity = false;	// to compute polarization as a function of rapidity (instead of at midrapidity)
-bool new_formula = false;	// to use the improved formula applied to the isothermal hypersurface
+//surface_mode selected_surface_mode = surface_mode::standard;	// initialize the surface_mode variable
+//formula_mode selected_formula_mode = formula_mode::improved;	// initialize the formula_mode variable
+polarization_mode selected_polarization_mode = polarization_mode::improved_pysr;
+
+/*
+// Map for the hypersurface reading functions
+map<surface_mode, hypersurface_reader> reader_map = {
+	{surface_mode::standard, read_hypersrface},
+	{surface_mode::modified, read_hypersrface_with_normal},
+	{surface_mode::isothermal, read_hypersrface_iso}
+};
+
+// Map for the polarization functions with rapidity dependence
+map<formula_mode, polarization_func_rapidity> formula_map_rapidity = {
+	{formula_mode::improved, modified_polarization_rapidity_linear},
+	{formula_mode::improved_mod, modified_polarization_rapidity_linear_mod},
+	{formula_mode::old, polarization_exact_rapidity}
+};
+
+// Map for the polarization functions at midrapidity
+map<formula_mode, polarization_func_midrapidity> formula_map_midrapidity = {
+	{formula_mode::improved, modified_polarization_midrapidity_linear},
+	{formula_mode::improved_mod, modified_polarization_midrapidity_linear_mod},
+	{formula_mode::old, polarization_midrapidity_linear}
+};
+*/
+
+// Map for the hypersurface reading functions
+map<polarization_mode, hypersurface_reader> reader_map = {
+	{polarization_mode::improved_std, read_hypersrface},
+	{polarization_mode::improved_pysr, read_hypersrface},
+	{polarization_mode::improved_hybrid, read_hypersrface_with_normal},
+	{polarization_mode::isothermal, read_hypersrface_iso}
+};
+
+// Map for the polarization functions with rapidity dependence
+map<polarization_mode, polarization_func_rapidity> formula_map_rapidity = {
+	{polarization_mode::improved_std, improved_polarization_rapidity_linear},
+	{polarization_mode::improved_pysr, improved_polarization_rapidity_linear},
+	{polarization_mode::improved_hybrid, improved_polarization_rapidity_linear_mod},
+	{polarization_mode::isothermal, polarization_exact_rapidity}
+};
+
+// Map for the polarization functions at midrapidity
+map<polarization_mode, polarization_func_midrapidity> formula_map_midrapidity = {
+	{polarization_mode::improved_std, improved_polarization_midrapidity_linear},
+	{polarization_mode::improved_pysr, improved_polarization_midrapidity_linear},
+	{polarization_mode::improved_hybrid, improved_polarization_midrapidity_linear_mod},
+	{polarization_mode::isothermal, polarization_midrapidity_linear}
+};
+
+// Map for the output filename
+map<polarization_mode, string> output_fname_map = {
+	{polarization_mode::improved_std, "/primary_improved_std"},
+	{polarization_mode::improved_pysr, "/primary_improved_pysr"},
+	{polarization_mode::improved_hybrid, "/primary_improved_hybrid"},
+	{polarization_mode::isothermal, "/primary_isothermal"}
+};
 
 if(argc<3){
-    cout<< "INVALID SINTAX!"<<endl;
-	cout<<"use './foil <surface_file> <output_folder> <flags>' to compute Lambda polarization at decoupling."<<endl;
+    cout << "INVALID SINTAX!" << endl;
+	cout << "use './foil <surface_file> <output_folder> <flags>' to compute Lambda polarization at decoupling." << endl;
 	exit(1);
 }
 
@@ -31,19 +112,25 @@ if(argc>3){
 		if (argv[i]=="-D"s) {
 			decay = true;
 			cout << "Including calculations for the feed-down corrections!" << endl;
-		} else if (argv[i]=="-I"s) {
-			isoth = true;
-			cout << "Using the isothermal approximation!" << endl;
 		} else if (argv[i]=="-R"s) {
 			rapidity = true;
 			cout << "Calculating polarization in the rapidity window [-1,1]!" << endl;
-		} else if (argv[i]=="-N"s) {
-			new_formula = true;
-			cout << "Using the improved formula for the polarization calculation" << endl;
+		} else if (argv[i]=="--iso"s) {
+			cout << "Using the isothermal approximation (old) formula for the polarization calculation!" << endl;
+			selected_polarization_mode = polarization_mode::isothermal;
+		} else if (argv[i]=="--impr-std"s) {
+			cout << "Using the improved formula and the original beta.dat vHLLE file for the polarization calculation!" << endl;
+			selected_polarization_mode = polarization_mode::improved_std;
+		} else if (argv[i]=="--impr-hybrid"s) {
+			cout << "Using the improved formula and the pysr-hybrid beta.dat vHLLE file for the polarization calculation!" << endl;
+			selected_polarization_mode = polarization_mode::improved_hybrid;
 		} else {
 			cout << "Unknown flag ignored: " << argv[i] << endl;
 		}
 	}
+}
+if(selected_polarization_mode == polarization_mode::improved_pysr) {
+	cout << "Using the improved formula and the pysr-modified beta.dat vHLLE file for the polarization calculation!" << endl;
 }
 
 string surface_file = argv[1];
@@ -51,45 +138,21 @@ string output_folder = argv[2];
 filesystem::create_directories(output_folder);
 
 vector<element> hypersup = {};
-string output_filename;
-if (isoth) {
-	read_hypersrface_iso(surface_file, hypersup);
-	if (new_formula) {
-		if (rapidity) {
-			output_filename = "/primary_isothermal_rapidity_improved";
-		} else {
-			output_filename = "/primary_isothermal_midrapidity_improved";
-		}
-	} else {
-		if (rapidity) {
-			output_filename = "/primary_isothermal_rapidity";
-		} else {
-			output_filename = "/primary_isothermal";
-		}
-	}
+reader_map[selected_polarization_mode](surface_file, hypersup);	// read the hypersurface input file
+
+string output_filename = output_fname_map[selected_polarization_mode];
+if(rapidity){
+	output_filename = output_filename + "_rapidity";
 } else {
-	read_hypersrface(surface_file, hypersup);
-	if (new_formula) {
-		if (rapidity) {
-			output_filename = "/primary_rapidity";
-		} else {
-			output_filename = "/primary";
-		}
-	} else {
-		if (rapidity) {
-			output_filename = "/primary_super-vhlle_rapidity";
-		} else {
-			output_filename = "/primary_super-vhlle_midrapidity";
-		}
-	}
+	output_filename = output_filename + "_midrapidity";
 }
 
 int size_pt = 30;
 int size_phi = 30;
 int size_y = 20;
-vector<double> pT = linspace(0.5,6.5,size_pt);
+vector<double> pT = linspace(0,6,size_pt);
 vector<double> phi =  linspace(0,2*PI,size_phi);
-vector<double> y_rap =  linspace(-0.5,0.5,size_y);
+vector<double> y_rap =  linspace(-1,1,size_y);
 
 string name_file_primary = output_folder + output_filename;
 std::filesystem::path f{name_file_primary};
@@ -105,25 +168,19 @@ if(!primary_exists){
 	Lambda.print();
 
 	if (rapidity) {
+		polarization_func_rapidity polarization_calc = formula_map_rapidity[selected_polarization_mode];
 		for(double ipt : pT){
 			for(double iphi : phi){
 				for(double iy : y_rap){
-					if (!new_formula) {
-						polarization_exact_rapidity(ipt, iphi, iy, Lambda, hypersup, fout);	// isothermal-approx formula
-					} else {
-						modified_polarization_rapidity_linear(ipt, iphi, iy, Lambda, hypersup, fout);	// improved formula [2509.14301]
-					}
+					polarization_calc(ipt, iphi, iy, Lambda, hypersup, fout);
 				}
 			}
 		}
 	} else {
+		polarization_func_midrapidity polarization_calc = formula_map_midrapidity[selected_polarization_mode];
 		for(double ipt : pT){
 			for(double iphi : phi){
-				if (!new_formula) {
-					polarization_midrapidity_linear(ipt, iphi, Lambda, hypersup, fout);	// isothermal-approx formula
-				} else {
-					modified_polarization_midrapidity_linear(ipt, iphi, Lambda, hypersup, fout);	// improved formula [2509.14301]
-				}
+				polarization_calc(ipt, iphi, Lambda, hypersup, fout);
 			}
 		}
 	}

@@ -21,11 +21,17 @@ void polarization_midrapidity(double pT, double phi, pdg_particle particle, vect
 //same as the previous function but uses the linear approximation for the vorticity induced polarization. This function is faster.
 void polarization_midrapidity_linear(double pT, double phi, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
 
-//same as the previous function but uses eq. 23 of 2509.14301 (with just the contribution from \overline{y}=x) as the formula for the mean spin vector
-void modified_polarization_midrapidity_linear(double pT, double phi, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
+//same as the previous function but uses eq. 46 of 2509.14301v4 (with just the contribution from \overline{y}=x) as the formula for the mean spin vector
+void improved_polarization_midrapidity_linear(double pT, double phi, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
+
+//uses eq. 46 of 2509.14301v4 (with just the contribution from \overline{y}=x) as the formula for the mean spin vector and the modified beta.dat vHLLE output file with both dSigma and n
+void improved_polarization_midrapidity_linear_mod(double pT, double phi, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
 
 //same as the previous function but includes the rapidity dependence.
-void modified_polarization_rapidity_linear(double pT, double phi, double y_rap, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
+void improved_polarization_rapidity_linear(double pT, double phi, double y_rap, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
+
+//same as the previous function but uses the modified beta.dat vHLLE output file with both dSigma and n
+void improved_polarization_rapidity_linear_mod(double pT, double phi, double y_rap, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
 
 //Same as "polarization_midrapidity", but the table now includes the rapidity "y":
 //pt phi y denominator numerator_varpi numerator_xi
