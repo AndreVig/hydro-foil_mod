@@ -20,6 +20,7 @@ Options that can be added in the execution command and their explanantion:
 	-R --> to include rapidity dependence in the polarization calculation
 	--iso --> to use the isothermal approximation (old) formula for the polarization calculation
 	--impr-std --> to use the improved formula for the polarization calculation, and the original beta.dat vHLLE file
+	--impr-theta --> to use the improved formula with the exclusion of the contribution from the cells with p·n < 0 for the polarization calculation
 	--impr-hybrid --> to use the improved formula for the polarization calculation, and the pysr-hybrid beta.dat vHLLE file
 */
 
