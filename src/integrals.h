@@ -24,11 +24,21 @@ void polarization_midrapidity_linear(double pT, double phi, pdg_particle particl
 //same as the previous function but uses eq. 46 of 2509.14301v4 (with just the contribution from \overline{y}=x) as the formula for the mean spin vector
 void improved_polarization_midrapidity_linear(double pT, double phi, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
 
+//computes the mean spin vector at midrapidity,
+//using equation (46) of 2509.14301v4 (with just the contribution from \overline{y}=x),
+//but replacing sgn[p\cdt n] with \Theta(p\cdot n) in the integrand.
+void improved_polarization_midrapidity_linear_theta(double pT, double phi, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
+
 //uses eq. 46 of 2509.14301v4 (with just the contribution from \overline{y}=x) as the formula for the mean spin vector and the modified beta.dat vHLLE output file with both dSigma and n
 void improved_polarization_midrapidity_linear_mod(double pT, double phi, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
 
 //same as the previous function but includes the rapidity dependence.
 void improved_polarization_rapidity_linear(double pT, double phi, double y_rap, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
+
+//computes the mean spin vector, including rapidity dependence,
+//using equation (46) of 2509.14301v4 (with just the contribution from \overline{y}=x),
+//but replacing sgn[p\cdt n] with \Theta(p\cdot n) in the integrand.
+void improved_polarization_rapidity_linear_theta(double pT, double phi, double y_rap, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);
 
 //same as the previous function but uses the modified beta.dat vHLLE output file with both dSigma and n
 void improved_polarization_rapidity_linear_mod(double pT, double phi, double y_rap, pdg_particle particle, vector<element> &freeze_out_sup, ofstream &fileout);

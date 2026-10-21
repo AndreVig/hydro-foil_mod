@@ -27,7 +27,7 @@ using namespace std;
 
 //enum class surface_mode {standard, modified, isothermal};	// "modified" refers to the beta.dat file (output of vHLLE) with the inclusion of the unit normal vector
 //enum class formula_mode {improved, improved_mod, old};	// "improved_mod" refers to the improved formula adapted to the modified beta.dat file
-enum class polarization_mode {isothermal, improved_std, improved_pysr, improved_hybrid};
+enum class polarization_mode {isothermal, improved_std, improved_theta, improved_pysr, improved_hybrid};
 
 // Use "hypersurface_reader" as an alias for the function type used to read the hypersurface file
 using hypersurface_reader = std::function<void(string, vector<element>&)>;
@@ -72,6 +72,7 @@ map<formula_mode, polarization_func_midrapidity> formula_map_midrapidity = {
 // Map for the hypersurface reading functions
 map<polarization_mode, hypersurface_reader> reader_map = {
 	{polarization_mode::improved_std, read_hypersrface},
+	{polarization_mode::improved_theta, read_hypersrface},
 	{polarization_mode::improved_pysr, read_hypersrface},
 	{polarization_mode::improved_hybrid, read_hypersrface_with_normal},
 	{polarization_mode::isothermal, read_hypersrface_iso}
@@ -80,6 +81,7 @@ map<polarization_mode, hypersurface_reader> reader_map = {
 // Map for the polarization functions with rapidity dependence
 map<polarization_mode, polarization_func_rapidity> formula_map_rapidity = {
 	{polarization_mode::improved_std, improved_polarization_rapidity_linear},
+	{polarization_mode::improved_theta, improved_polarization_rapidity_linear_theta},
 	{polarization_mode::improved_pysr, improved_polarization_rapidity_linear},
 	{polarization_mode::improved_hybrid, improved_polarization_rapidity_linear_mod},
 	{polarization_mode::isothermal, polarization_exact_rapidity}
@@ -88,6 +90,7 @@ map<polarization_mode, polarization_func_rapidity> formula_map_rapidity = {
 // Map for the polarization functions at midrapidity
 map<polarization_mode, polarization_func_midrapidity> formula_map_midrapidity = {
 	{polarization_mode::improved_std, improved_polarization_midrapidity_linear},
+	{polarization_mode::improved_theta, improved_polarization_midrapidity_linear_theta},
 	{polarization_mode::improved_pysr, improved_polarization_midrapidity_linear},
 	{polarization_mode::improved_hybrid, improved_polarization_midrapidity_linear_mod},
 	{polarization_mode::isothermal, polarization_midrapidity_linear}
@@ -96,6 +99,7 @@ map<polarization_mode, polarization_func_midrapidity> formula_map_midrapidity = 
 // Map for the output filename
 map<polarization_mode, string> output_fname_map = {
 	{polarization_mode::improved_std, "/primary_improved_std"},
+	{polarization_mode::improved_theta, "/primary_improved_theta"},
 	{polarization_mode::improved_pysr, "/primary_improved_pysr"},
 	{polarization_mode::improved_hybrid, "/primary_improved_hybrid"},
 	{polarization_mode::isothermal, "/primary_isothermal"}
@@ -121,6 +125,9 @@ if(argc>3){
 		} else if (argv[i]=="--impr-std"s) {
 			cout << "Using the improved formula and the original beta.dat vHLLE file for the polarization calculation!" << endl;
 			selected_polarization_mode = polarization_mode::improved_std;
+		} else if (argv[i]=="--impr-theta"s) {
+			cout << "Using the improved formula without the contribution from the cells with p·n < 0 for the polarization calculation!" << endl;
+			selected_polarization_mode = polarization_mode::improved_theta;
 		} else if (argv[i]=="--impr-hybrid"s) {
 			cout << "Using the improved formula and the pysr-hybrid beta.dat vHLLE file for the polarization calculation!" << endl;
 			selected_polarization_mode = polarization_mode::improved_hybrid;
