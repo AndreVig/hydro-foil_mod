@@ -2,6 +2,7 @@
 #include "particle_data_group.h"
 #include "utils.h"
 #include "surface.h"
+#include "curvature.h"
 #include <filesystem>
 #include <functional>
 #include <map>
@@ -22,6 +23,14 @@ Options that can be added in the execution command and their explanantion:
 	--impr-std --> to use the improved formula for the polarization calculation, and the original beta.dat vHLLE file
 	--impr-theta --> to use the improved formula with the exclusion of the contribution from the cells with p·n < 0 for the polarization calculation
 	--impr-hybrid --> to use the improved formula for the polarization calculation, and the pysr-hybrid beta.dat vHLLE file
+	--curv <geometry file> --> eq. (46) of 2509.14301 PLUS the first non-vanishing correction in the derivatives of the
+	            normal vector (N = 3 term), using the analytic geometry written by write_geometry.py for this beta.dat.
+	            Output file primary_curvature_(mid)rapidity with columns
+	            pT phi y N_p S1^0..3 S3^0..3 S3lit^0..3   (S1: eq. (46); S3: correction; S3lit: eq. (47) as written)
+	--point <pT> <phi> <y> --> with --curv: compute only this momentum (repeatable), instead of the full grid
+	--cut <value> --> with --curv: drop cells with |p.n|/m < value from the N = 3 term (grazing world lines,
+	            where it is singular); eq. (46) always uses all cells. Default 0 (no cut).
+	--curv ... --impr-theta --> as --impr-theta: cells with p.dSigma < 0 are excluded from everything (N_p, eq. (46), N = 3)
 */
 
 using namespace std;
@@ -42,6 +51,9 @@ using polarization_func_midrapidity = std::function<void(double, double, pdg_par
 int main(int argc, char** argv){
 
 bool decay = false;
+string geometry_file = "";	// --curv: binary geometry file from write_geometry.py
+double grazing_cut = 0.0;	// --cut: minimum |p.n|/m for the N = 3 term in --curv mode
+vector<array<double,3>> single_points;	// --point pT phi y (repeatable): only these momenta in --curv mode
 bool rapidity = false;	// to compute polarization as a function of rapidity (instead of at midrapidity)
 //surface_mode selected_surface_mode = surface_mode::standard;	// initialize the surface_mode variable
 //formula_mode selected_formula_mode = formula_mode::improved;	// initialize the formula_mode variable
@@ -129,6 +141,21 @@ if(argc>3){
 		} else if (argv[i]=="--impr-theta"s) {
 			cout << "Using the improved formula without the contribution from the cells with p·n < 0 for the polarization calculation!" << endl;
 			selected_polarization_mode = polarization_mode::improved_theta;
+		} else if (argv[i]=="--curv"s && i+1<argc) {
+			geometry_file = argv[++i];
+			cout << "Including the N = 3 curvature correction with geometry file " << geometry_file << endl;
+		} else if (argv[i]=="--point"s && i+3<argc) {
+			try {
+				single_points.push_back({stod(argv[i+1]), stod(argv[i+2]), stod(argv[i+3])});
+			} catch (...) {
+				cout << "--point needs three numbers: pT phi y" << endl;
+				exit(1);
+			}
+			i += 3;
+		} else if (argv[i]=="--cut"s && i+1<argc) {
+			try { grazing_cut = stod(argv[++i]); }
+			catch (...) { cout << "--cut needs a number" << endl; exit(1); }
+			cout << "Cut on grazing world lines: |p.n|/m >= " << grazing_cut << endl;
 		} else if (argv[i]=="--impr-hybrid"s) {
 			cout << "Using the improved formula and the pysr-hybrid beta.dat vHLLE file for the polarization calculation!" << endl;
 			selected_polarization_mode = polarization_mode::improved_hybrid;
@@ -144,6 +171,39 @@ if(selected_polarization_mode == polarization_mode::improved_pysr) {
 string surface_file = argv[1];
 string output_folder = argv[2];
 filesystem::create_directories(output_folder);
+
+//////////////////////// eq. (46) + N = 3 curvature correction ////////////////////////
+if(!geometry_file.empty()){
+	vector<element> hypersup = {};
+	read_hypersrface(surface_file, hypersup);
+	vector<geo_cell> geometry;
+	read_geometry(geometry_file, hypersup, geometry);
+	const bool theta = (selected_polarization_mode == polarization_mode::improved_theta);
+	if(theta) cout << "--curv with theta(p.dSigma): cells with p.dSigma < 0 are excluded" << endl;
+	string name = output_folder + (rapidity ? "/primary_curvature_rapidity" : "/primary_curvature_midrapidity")
+	              + (theta ? "_theta" : "");
+	ofstream fout(name);
+	if (!fout) {
+		cout << "I/O error with " << name << endl;
+		exit(1);
+	}
+	fout << "# pT phi y N_p S1^0 S1^1 S1^2 S1^3 S3^0 S3^1 S3^2 S3^3 S3lit^0 S3lit^1 S3lit^2 S3lit^3"
+	     << "   (cut |p.n|/m >= " << grazing_cut << (theta ? ", theta(p.dSigma)" : "") << ", geometry " << geometry_file << ")" << endl;
+	pdg_particle Lambda(3122);
+	Lambda.print();
+	vector<double> pTc = linspace(0,6,30), phic = linspace(0,2*PI,30), yc = linspace(-1,1,20);
+	if(!rapidity) yc = {0.0};
+	if(!single_points.empty()){
+		for(auto &pt : single_points)
+			curvature_polarization(pt[0], pt[1], pt[2], Lambda, hypersup, geometry, grazing_cut, theta, fout);
+	} else {
+		for(double ipt : pTc) for(double iphi : phic) for(double iy : yc)
+			curvature_polarization(ipt, iphi, iy, Lambda, hypersup, geometry, grazing_cut, theta, fout);
+	}
+	if(decay) cout << "Feed-down is not implemented for --curv; only primary Lambdas were computed." << endl;
+	cout<<"The calculation is done!"<<endl;
+	return 0;
+}
 
 vector<element> hypersup = {};
 reader_map[selected_polarization_mode](surface_file, hypersup);	// read the hypersurface input file
