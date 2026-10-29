@@ -49,9 +49,10 @@ inline Dual fermi(Dual E) {
 const double Gm[4] = {1.0, -1.0, -1.0, -1.0};
 const int PAIRS[10][2] = {{0,0},{0,1},{0,2},{0,3},{1,1},{1,2},{1,3},{2,2},{2,3},{3,3}};
 
+// part 0: thermal vorticity (antisymmetric part of d_m beta_n), part 1: thermal shear (symmetric part)
 struct CellResult {
     Dual pdS, nF;
-    Dual A1[4], A3d[4], A3dp[4], A3d_lit[4], A3dp_lit[4];
+    Dual A1[2][4], A3d[2][4], A3dp[2][4], A3d_lit[2][4], A3dp_lit[2][4];
     double grazing;   // |p.N| / (m sqrt|N.N|)
 };
 
@@ -205,36 +206,9 @@ void cell_terms(const Dual p[4], const element &c, const geo_cell &g, double mas
         pG1[nu] = Dual();
         for (int e = 0; e < 4; e++) pG1[nu] += p[e] * G1[e][nu];
     }
-    // contractions with the gradients:  w_s = p^alpha d_s beta_alpha  (d zeta = 0)
-    Dual w[4], Dw[4], pdb[4], Ddb[4][4], wp, pGam;
-    for (int sg = 0; sg < 4; sg++) {
-        w[sg] = Dual();
-        for (int al = 0; al < 4; al++) w[sg] += p[al] * c.dbeta[sg][al];
-    }
-    for (int r = 0; r < 4; r++) {
-        pdb[r] = Dual();
-        for (int sg = 0; sg < 4; sg++) pdb[r] += p[sg] * c.dbeta[sg][r];
-    }
-    for (int a = 0; a < 4; a++) {
-        Dw[a] = Dual();
-        for (int sg = 0; sg < 4; sg++) Dw[a] += Dup[a][sg] * w[sg];
-        for (int r = 0; r < 4; r++) {
-            Dual acc;
-            for (int sg = 0; sg < 4; sg++) acc += Dup[a][sg] * c.dbeta[sg][r];
-            Ddb[a][r] = acc;
-        }
-    }
-    wp = Dual(); pGam = Dual();
-    for (int a = 0; a < 4; a++) { wp += p[a] * w[a]; pGam += p[a] * Gam[a]; }
-
-    // ---- N = 1  (eq. 46)
-    Dual X1[4][4];
-    for (int r = 0; r < 4; r++)
-        for (int t = 0; t < 4; t++) X1[r][t] = (Gam[r] * Dw[t] + pGam * Ddb[t][r]) * Gm[t];
-    eps_contract(pl, X1, R.A1);
-    for (int m = 0; m < 4; m++) R.A1[m] = -(a0 * R.A1[m]);
-
-    // ---- N = 3
+    // gradient-independent pieces of the N = 3 term
+    Dual pGam;
+    for (int a = 0; a < 4; a++) pGam += p[a] * Gam[a];
     Dual pDG1[4], pGY2[4][4], pDDG2[4][4], GY2[4][4][4];
     for (int a = 0; a < 4; a++) {
         pDG1[a] = Dual();
@@ -248,46 +222,84 @@ void cell_terms(const Dual p[4], const element &c, const geo_cell &g, double mas
             }
         }
     }
-    // U[r][a][b][c] = V_r^nu_sigma E^{abc sigma}_nu  (complete and literal)
-    Dual XB[4][4], XC[4][4], XBl[4][4], XCl[4][4];
-    for (int r = 0; r < 4; r++)
-        for (int t = 0; t < 4; t++) { XB[r][t] = XC[r][t] = XBl[r][t] = XCl[r][t] = Dual(); }
-    for (int r = 0; r < 4; r++) {
-        Dual U[4][4][4], Ul[4][4][4];
-        for (int a = 0; a < 4; a++)
-            for (int b = 0; b < 4; b++)
-                for (int cc = 0; cc < 4; cc++) {
-                    U[a][b][cc] = wp * (Gam[r] * t3u[a][b][cc] + 3.0 * DG1[a][r] * t2u[b][cc])
-                                  + 3.0 * GY2[a][b][r] * Dw[cc]
-                                  + pdb[r] * (pGam * t3u[a][b][cc] + 3.0 * pDG1[a] * t2u[b][cc])
-                                  + 3.0 * pGY2[a][b] * Ddb[cc][r];
-                    Ul[a][b][cc] = 3.0 * DDG2[a][b][r] * Dw[cc] + 3.0 * pDDG2[a][b] * Ddb[cc][r];
-                }
-        // T^(3) contractions:  B_{abc tau} = beta_a beta_b g_{c tau} + perms,  C = g_ab g_{c tau} + perms
-        for (int t = 0; t < 4; t++) {
-            Dual sb, sbl, sc, scl;
-            for (int a = 0; a < 4; a++)
-                for (int b = 0; b < 4; b++) {
-                    double bb = beta[a] * beta[b];
-                    sb += bb * (U[a][b][t] + U[a][t][b] + U[t][a][b]);
-                    sbl += bb * (Ul[a][b][t] + Ul[a][t][b] + Ul[t][a][b]);
-                }
-            for (int a = 0; a < 4; a++) {
-                sc += Gm[a] * (U[a][a][t] + U[a][t][a] + U[t][a][a]);
-                scl += Gm[a] * (Ul[a][a][t] + Ul[a][t][a] + Ul[t][a][a]);
-            }
-            XB[r][t] = Gm[t] * sb; XBl[r][t] = Gm[t] * sbl;
-            XC[r][t] = Gm[t] * sc; XCl[r][t] = Gm[t] * scl;
+
+    // Everything below is linear in d_m beta_n: it is evaluated separately for the
+    // antisymmetric part (thermal vorticity, part 0) and the symmetric part (thermal shear, part 1)
+    // of the d_m beta_n columns; the two parts add up to the full result.  (d zeta = 0)
+    for (int part = 0; part < 2; part++) {
+        double db[4][4];
+        for (int m = 0; m < 4; m++)
+            for (int n2 = 0; n2 < 4; n2++)
+                db[m][n2] = 0.5 * (c.dbeta[m][n2] + (part == 0 ? -1.0 : 1.0) * c.dbeta[n2][m]);
+
+        // contractions with the gradients:  w_s = p^alpha d_s beta_alpha
+        Dual w[4], Dw[4], pdb[4], Ddb[4][4], wp;
+        for (int sg = 0; sg < 4; sg++) {
+            w[sg] = Dual();
+            for (int al = 0; al < 4; al++) w[sg] += p[al] * db[sg][al];
         }
-    }
-    Dual eB[4], eC[4], eBl[4], eCl[4];
-    eps_contract(pl, XB, eB); eps_contract(pl, XC, eC);
-    eps_contract(pl, XBl, eBl); eps_contract(pl, XCl, eCl);
-    for (int m = 0; m < 4; m++) {
-        R.A3d[m] = (2.0 / 6.0) * a2 * eB[m];
-        R.A3dp[m] = (0.5 / 6.0) * a0 * eC[m];
-        R.A3d_lit[m] = (2.0 / 6.0) * a2 * eBl[m];
-        R.A3dp_lit[m] = (0.5 / 6.0) * a0 * eCl[m];
+        for (int r = 0; r < 4; r++) {
+            pdb[r] = Dual();
+            for (int sg = 0; sg < 4; sg++) pdb[r] += p[sg] * db[sg][r];
+        }
+        for (int a = 0; a < 4; a++) {
+            Dw[a] = Dual();
+            for (int sg = 0; sg < 4; sg++) Dw[a] += Dup[a][sg] * w[sg];
+            for (int r = 0; r < 4; r++) {
+                Dual acc;
+                for (int sg = 0; sg < 4; sg++) acc += Dup[a][sg] * db[sg][r];
+                Ddb[a][r] = acc;
+            }
+        }
+        wp = Dual();
+        for (int a = 0; a < 4; a++) wp += p[a] * w[a];
+
+        // ---- N = 1  (eq. 46)
+        Dual X1[4][4];
+        for (int r = 0; r < 4; r++)
+            for (int t = 0; t < 4; t++) X1[r][t] = (Gam[r] * Dw[t] + pGam * Ddb[t][r]) * Gm[t];
+        eps_contract(pl, X1, R.A1[part]);
+        for (int m = 0; m < 4; m++) R.A1[part][m] = -(a0 * R.A1[part][m]);
+
+        // ---- N = 3:  U[r][a][b][c] = V_r^nu_sigma E^{abc sigma}_nu  (complete and literal)
+        Dual XB[4][4], XC[4][4], XBl[4][4], XCl[4][4];
+        for (int r = 0; r < 4; r++) {
+            Dual U[4][4][4], Ul[4][4][4];
+            for (int a = 0; a < 4; a++)
+                for (int b = 0; b < 4; b++)
+                    for (int cc = 0; cc < 4; cc++) {
+                        U[a][b][cc] = wp * (Gam[r] * t3u[a][b][cc] + 3.0 * DG1[a][r] * t2u[b][cc])
+                                      + 3.0 * GY2[a][b][r] * Dw[cc]
+                                      + pdb[r] * (pGam * t3u[a][b][cc] + 3.0 * pDG1[a] * t2u[b][cc])
+                                      + 3.0 * pGY2[a][b] * Ddb[cc][r];
+                        Ul[a][b][cc] = 3.0 * DDG2[a][b][r] * Dw[cc] + 3.0 * pDDG2[a][b] * Ddb[cc][r];
+                    }
+            // T^(3) contractions:  B_{abc tau} = beta_a beta_b g_{c tau} + perms,  C = g_ab g_{c tau} + perms
+            for (int t = 0; t < 4; t++) {
+                Dual sb, sbl, sc, scl;
+                for (int a = 0; a < 4; a++)
+                    for (int b = 0; b < 4; b++) {
+                        double bb = beta[a] * beta[b];
+                        sb += bb * (U[a][b][t] + U[a][t][b] + U[t][a][b]);
+                        sbl += bb * (Ul[a][b][t] + Ul[a][t][b] + Ul[t][a][b]);
+                    }
+                for (int a = 0; a < 4; a++) {
+                    sc += Gm[a] * (U[a][a][t] + U[a][t][a] + U[t][a][a]);
+                    scl += Gm[a] * (Ul[a][a][t] + Ul[a][t][a] + Ul[t][a][a]);
+                }
+                XB[r][t] = Gm[t] * sb; XBl[r][t] = Gm[t] * sbl;
+                XC[r][t] = Gm[t] * sc; XCl[r][t] = Gm[t] * scl;
+            }
+        }
+        Dual eB[4], eC[4], eBl[4], eCl[4];
+        eps_contract(pl, XB, eB); eps_contract(pl, XC, eC);
+        eps_contract(pl, XBl, eBl); eps_contract(pl, XCl, eCl);
+        for (int m = 0; m < 4; m++) {
+            R.A3d[part][m] = (2.0 / 6.0) * a2 * eB[m];
+            R.A3dp[part][m] = (0.5 / 6.0) * a0 * eC[m];
+            R.A3d_lit[part][m] = (2.0 / 6.0) * a2 * eBl[m];
+            R.A3dp_lit[part][m] = (0.5 / 6.0) * a0 * eCl[m];
+        }
     }
 }
 
@@ -362,9 +374,9 @@ void curvature_polarization(double pT, double phi, double y_rap, pdg_particle pa
     const double mT = sqrt(mass * mass + pT * pT);
     const Dual p[4] = {Dual(mT * cosh(y_rap), 1.0), Dual(pT * cos(phi)), Dual(pT * sin(phi)), Dual(mT * sinh(y_rap))};
 
+    // index [2*m + part]: part 0 = thermal vorticity, part 1 = thermal shear
     double Np = 0;
-    double S1[4] = {0, 0, 0, 0}, S3d[4] = {0, 0, 0, 0}, S3dp[4] = {0, 0, 0, 0};
-    double S3dl[4] = {0, 0, 0, 0}, S3dpl[4] = {0, 0, 0, 0};
+    double S1[8] = {0}, S3d[8] = {0}, S3dp[8] = {0}, S3dl[8] = {0}, S3dpl[8] = {0};
     const long ncell = (long)hypersurface.size();
 #ifdef OPEN_MP
 #pragma omp parallel for schedule(dynamic, 2048) reduction(+ : Np, S1, S3d, S3dp, S3dl, S3dpl)
@@ -376,23 +388,29 @@ void curvature_polarization(double pT, double phi, double y_rap, pdg_particle pa
         cell_terms(p, c, geometry[i], mass, mutot, R);
         if (theta && R.pdS.v < 0) continue;                              // as --impr-theta
         Np += R.pdS.v * R.nF.v;
-        for (int m = 0; m < 4; m++) S1[m] += R.pdS.v * R.A1[m].v;     // eq. (46): all cells
+        for (int part = 0; part < 2; part++)
+            for (int m = 0; m < 4; m++) S1[2 * m + part] += R.pdS.v * R.A1[part][m].v;   // eq. (46): all cells
         if (R.grazing < cut) continue;                                   // cut acts on the N = 3 term only
-        for (int m = 0; m < 4; m++) {
-            S3d[m] += R.pdS.v * R.A3d[m].v;
-            S3dl[m] += R.pdS.v * R.A3d_lit[m].v;
-            // delta' term: - d/dp0 [ (dSigma.p) A_delta' / (2 p0) ]
-            Dual gq = R.pdS * R.A3dp[m] / (2.0 * p[0]);
-            Dual gl = R.pdS * R.A3dp_lit[m] / (2.0 * p[0]);
-            S3dp[m] += -gq.d;
-            S3dpl[m] += -gl.d;
-        }
+        for (int part = 0; part < 2; part++)
+            for (int m = 0; m < 4; m++) {
+                const int k = 2 * m + part;
+                S3d[k] += R.pdS.v * R.A3d[part][m].v;
+                S3dl[k] += R.pdS.v * R.A3d_lit[part][m].v;
+                // delta' term: - d/dp0 [ (dSigma.p) A_delta' / (2 p0) ]
+                Dual gq = R.pdS * R.A3dp[part][m] / (2.0 * p[0]);
+                Dual gl = R.pdS * R.A3dp_lit[part][m] / (2.0 * p[0]);
+                S3dp[k] += -gq.d;
+                S3dpl[k] += -gl.d;
+            }
     }
     const double n1 = hbarC / (8.0 * mass * Np);
     const double n3 = hbarC * hbarC * hbarC / (8.0 * mass * Np);
     fileout << setprecision(10) << "   " << pT << "   " << phi << "   " << y_rap << "   " << Np;
-    for (int m = 0; m < 4; m++) fileout << "   " << S1[m] * n1;
-    for (int m = 0; m < 4; m++) fileout << "   " << (S3d[m] + S3dp[m]) * n3;
-    for (int m = 0; m < 4; m++) fileout << "   " << (S3dl[m] + S3dpl[m]) * n3;
+    for (int part = 0; part < 2; part++)
+        for (int m = 0; m < 4; m++) fileout << "   " << S1[2 * m + part] * n1;
+    for (int part = 0; part < 2; part++)
+        for (int m = 0; m < 4; m++) fileout << "   " << (S3d[2 * m + part] + S3dp[2 * m + part]) * n3;
+    for (int part = 0; part < 2; part++)
+        for (int m = 0; m < 4; m++) fileout << "   " << (S3dl[2 * m + part] + S3dpl[2 * m + part]) * n3;
     fileout << endl;
 }

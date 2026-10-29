@@ -35,11 +35,18 @@ derivatives of the normal vector (third order of the q-expansion, N = 3), using 
 hypersurface. `beta.geo` is written for this `beta.dat` by `write_geometry.py` (analytic-fit tools); it stores, per cell,
 the derivatives of the fitted function F up to third order and dSigma aligned with the analytic normal.
 
-Output `OUTDIR/primary_curvature_(mid)rapidity`, one line per momentum:
-`pT phi y N_p S1^0..3 S3^0..3 S3lit^0..3`
-- `S1`: eq. (46), identical to (P_vorticity + P_shear)/Denominator of `--impr-std` on the same dSigma;
-- `S3`: complete N = 3 correction; the result with the correction is `S1 + S3`;
-- `S3lit`: N = 3 term as written in eq. (47) (for comparison only).
+Output `OUTDIR/primary_curvature_(mid)rapidity`, one line per momentum (28 columns):
+`pT phi y N_p S1v^0..3 S1s^0..3 S3v^0..3 S3s^0..3 S3litv^0..3 S3lits^0..3`
+- `N_p`: the same quantity as the Denominator column of the other modes;
+- `S1v`, `S1s`: eq. (46), thermal-vorticity and thermal-shear contributions to the mean spin vector, already divided by
+  N_p, i.e. identical to P_vorticity/Denominator and P_shear/Denominator of `--impr-std` on the same dSigma;
+- `S3v`, `S3s`: the N = 3 correction, split in the same way and divided by the same N_p;
+- `S3litv`, `S3lits`: N = 3 term as written in eq. (47), split in the same way (for comparison only).
+  `S3v` vanishes identically (a Killing field, i.e. rigid rotation, gives no correction); `S3litv` does not, which shows
+  that the literal eq. (47) misses terms.
+
+The mean spin vector with the correction is `S1v + S1s + S3v + S3s` (multiply by N_p for numerators). The split is by the
+antisymmetric and symmetric parts of d_m beta_n; only the sum is free of gradients normal to the surface.
 
 `--cut c` drops cells with |p.n|/m < c from the N = 3 term, which is singular for world lines tangent to the surface;
 quote results for several cuts and for two fits of the surface. Adding `--impr-theta` excludes cells with p.dSigma < 0

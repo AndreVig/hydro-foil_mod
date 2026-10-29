@@ -26,7 +26,9 @@ Options that can be added in the execution command and their explanantion:
 	--curv <geometry file> --> eq. (46) of 2509.14301 PLUS the first non-vanishing correction in the derivatives of the
 	            normal vector (N = 3 term), using the analytic geometry written by write_geometry.py for this beta.dat.
 	            Output file primary_curvature_(mid)rapidity with columns
-	            pT phi y N_p S1^0..3 S3^0..3 S3lit^0..3   (S1: eq. (46); S3: correction; S3lit: eq. (47) as written)
+	            pT phi y N_p S1v^0..3 S1s^0..3 S3v^0..3 S3s^0..3 S3litv^0..3 S3lits^0..3
+	            (S1: eq. (46); S3: correction; v/s: thermal vorticity/shear parts; S3lit: eq. (47) as written;
+	             all already divided by N_p, see curvature.h)
 	--point <pT> <phi> <y> --> with --curv: compute only this momentum (repeatable), instead of the full grid
 	--cut <value> --> with --curv: drop cells with |p.n|/m < value from the N = 3 term (grazing world lines,
 	            where it is singular); eq. (46) always uses all cells. Default 0 (no cut).
@@ -187,7 +189,8 @@ if(!geometry_file.empty()){
 		cout << "I/O error with " << name << endl;
 		exit(1);
 	}
-	fout << "# pT phi y N_p S1^0 S1^1 S1^2 S1^3 S3^0 S3^1 S3^2 S3^3 S3lit^0 S3lit^1 S3lit^2 S3lit^3"
+	fout << "# pT phi y N_p  S1v^0..3 S1s^0..3  S3v^0..3 S3s^0..3  S3litv^0..3 S3lits^0..3"
+	     << "  (v = thermal vorticity, s = thermal shear; S = mean spin vector, already divided by N_p)"
 	     << "   (cut |p.n|/m >= " << grazing_cut << (theta ? ", theta(p.dSigma)" : "") << ", geometry " << geometry_file << ")" << endl;
 	pdg_particle Lambda(3122);
 	Lambda.print();
