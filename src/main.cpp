@@ -32,6 +32,10 @@ Options that can be added in the execution command and their explanantion:
 	--point <pT> <phi> <y> --> with --curv: compute only this momentum (repeatable), instead of the full grid
 	--cut <value> --> with --curv: drop cells with |p.n|/m < value from the N = 3 term (grazing world lines,
 	            where it is singular); eq. (46) always uses all cells. Default 0 (no cut).
+	--pt-grid <n> <min> <max> --> with --curv: n pT values from min to max (GeV), both included. Default 30 0 6
+	--phi-grid <n> --> with --curv: n phi values 0, 2pi/n, ..., 2pi(n-1)/n (uniform, no duplicate of 0).
+	            Default: 30 values from 0 to 2pi, both included (as in the other modes)
+	--y-grid <n> <min> <max> --> with --curv and -R: n rapidities from min to max, both included. Default 20 -1 1
 	--curv ... --impr-theta --> as --impr-theta: cells with p.dSigma < 0 are excluded from everything (N_p, eq. (46), N = 3)
 */
 
@@ -56,6 +60,8 @@ bool decay = false;
 string geometry_file = "";	// --curv: binary geometry file from write_geometry.py
 double grazing_cut = 0.0;	// --cut: minimum |p.n|/m for the N = 3 term in --curv mode
 vector<array<double,3>> single_points;	// --point pT phi y (repeatable): only these momenta in --curv mode
+int curv_npt = 30, curv_nphi = 0, curv_ny = 20;	// --pt-grid, --phi-grid, --y-grid (--curv mode); nphi = 0: default grid
+double curv_ptmin = 0.0, curv_ptmax = 6.0, curv_ymin = -1.0, curv_ymax = 1.0;
 bool rapidity = false;	// to compute polarization as a function of rapidity (instead of at midrapidity)
 //surface_mode selected_surface_mode = surface_mode::standard;	// initialize the surface_mode variable
 //formula_mode selected_formula_mode = formula_mode::improved;	// initialize the formula_mode variable
@@ -158,6 +164,20 @@ if(argc>3){
 			try { grazing_cut = stod(argv[++i]); }
 			catch (...) { cout << "--cut needs a number" << endl; exit(1); }
 			cout << "Cut on grazing world lines: |p.n|/m >= " << grazing_cut << endl;
+		} else if (argv[i]=="--pt-grid"s && i+3<argc) {
+			try { curv_npt = stoi(argv[i+1]); curv_ptmin = stod(argv[i+2]); curv_ptmax = stod(argv[i+3]); }
+			catch (...) { cout << "--pt-grid needs: n min max" << endl; exit(1); }
+			if (curv_npt < 1) { cout << "--pt-grid: n must be >= 1" << endl; exit(1); }
+			i += 3;
+		} else if (argv[i]=="--phi-grid"s && i+1<argc) {
+			try { curv_nphi = stoi(argv[++i]); }
+			catch (...) { cout << "--phi-grid needs: n" << endl; exit(1); }
+			if (curv_nphi < 1) { cout << "--phi-grid: n must be >= 1" << endl; exit(1); }
+		} else if (argv[i]=="--y-grid"s && i+3<argc) {
+			try { curv_ny = stoi(argv[i+1]); curv_ymin = stod(argv[i+2]); curv_ymax = stod(argv[i+3]); }
+			catch (...) { cout << "--y-grid needs: n min max" << endl; exit(1); }
+			if (curv_ny < 1) { cout << "--y-grid: n must be >= 1" << endl; exit(1); }
+			i += 3;
 		} else if (argv[i]=="--impr-hybrid"s) {
 			cout << "Using the improved formula and the pysr-hybrid beta.dat vHLLE file for the polarization calculation!" << endl;
 			selected_polarization_mode = polarization_mode::improved_hybrid;
@@ -194,8 +214,16 @@ if(!geometry_file.empty()){
 	     << "   (cut |p.n|/m >= " << grazing_cut << (theta ? ", theta(p.dSigma)" : "") << ", geometry " << geometry_file << ")" << endl;
 	pdg_particle Lambda(3122);
 	Lambda.print();
-	vector<double> pTc = linspace(0,6,30), phic = linspace(0,2*PI,30), yc = linspace(-1,1,20);
+	vector<double> pTc = (curv_npt == 1) ? vector<double>{curv_ptmin} : linspace(curv_ptmin, curv_ptmax, curv_npt);
+	vector<double> phic;
+	if (curv_nphi == 0) phic = linspace(0, 2*PI, 30);
+	else for (int k = 0; k < curv_nphi; k++) phic.push_back(2*PI*k/curv_nphi);
+	vector<double> yc = (curv_ny == 1) ? vector<double>{curv_ymin} : linspace(curv_ymin, curv_ymax, curv_ny);
 	if(!rapidity) yc = {0.0};
+	if(single_points.empty())
+		cout << "Momentum grid: " << pTc.size() << " pT in [" << pTc.front() << ", " << pTc.back() << "] x "
+		     << phic.size() << " phi x " << yc.size() << " y in [" << yc.front() << ", " << yc.back() << "] = "
+		     << pTc.size()*phic.size()*yc.size() << " momenta" << endl;
 	if(!single_points.empty()){
 		for(auto &pt : single_points)
 			curvature_polarization(pt[0], pt[1], pt[2], Lambda, hypersup, geometry, grazing_cut, theta, fout);

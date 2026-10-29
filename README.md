@@ -28,7 +28,7 @@ The output is written in "fileout" as a table:
 
 ## Curvature correction (--curv)
 
-`./foil beta.dat OUTDIR --curv beta.geo [--cut c] [-R] [--point pT phi y ...]`
+`./foil beta.dat OUTDIR --curv beta.geo [--cut c] [-R] [--point pT phi y ...] [--pt-grid n min max] [--phi-grid n] [--y-grid n min max]`
 
 Computes eq. (46) of arXiv:2509.14301 (trivial intersection ybar = x) **plus** the first non-vanishing correction in the
 derivatives of the normal vector (third order of the q-expansion, N = 3), using the analytic description of the
@@ -51,4 +51,8 @@ antisymmetric and symmetric parts of d_m beta_n; only the sum is free of gradien
 `--cut c` drops cells with |p.n|/m < c from the N = 3 term, which is singular for world lines tangent to the surface;
 quote results for several cuts and for two fits of the surface. Adding `--impr-theta` excludes cells with p.dSigma < 0
 from everything, as in the `--impr-theta` mode (output file name gets `_theta`). Feed-down is not included in this mode.
+Momentum grid (default as in the other modes: 30 pT in [0, 6] GeV x 30 phi in [0, 2pi] x 20 y in [-1, 1] with `-R`):
+`--pt-grid n min max` (n values, ends included), `--phi-grid n` (n uniform values 0 ... 2pi(n-1)/n, no duplicate of 0),
+`--y-grid n min max` (with `-R`). The N = 3 term is not smooth in phi (cells crossing the cut), so do not go below
+about 24 phi values when S3 matters.
 Formulas: `curvature_correction.pdf`; Python reference: `spin_curvature.py`.
